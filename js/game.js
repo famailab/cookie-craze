@@ -1,7 +1,8 @@
 /* COOKIE CRAZE - core game logic (no DOM). Yoshi's-Cookie-inspired, original code.
- * Board: 6x6. Rotate rows/cols with wrap. A line clears when it holds >=2
- * cookies and all are the same type (wild rainbow cookie matches anything).
- * New cookie lines invade from the right/top on a timer; overflow = game over.
+ * The play area is the bounding box of all cookies ("region"). Rotating a
+ * row/column wraps WITHIN the region; matches are checked within it; each
+ * invasion grows the region by one row/col from the top/right. Game over
+ * when the region can no longer grow (hits the 6x6 tray edge).
  */
 (function (global) {
   'use strict';
@@ -46,7 +47,6 @@
     this.lastClearAt = -999;
     this.invasionIn = this.invasionInterval();
     this.gameOver = false;
-    this.overflowAt = -1;
     // initial 3x3 block, bottom-left
     var n = this.typesForLevel(1);
     for (var r = ROWS - 3; r < ROWS; r++) {
@@ -83,47 +83,74 @@
     return n;
   };
 
-  // dir: row 'L'|'R', col 'U'|'D'. Returns list of moves for animation.
-  CookieGame.prototype.rotate = function (r, c, dir) {
-    if (this.gameOver) return [];
-    var moves = [], i, cookie;
-    if (dir === 'L' || dir === 'R') {
-      var row = this.board[r];
-      var nn = (dir === 'R') ? 1 : COLS - 1;
-      var moved = false;
-      for (i = 0; i < COLS; i++) if (row[i]) { moved = true; break; }
-      if (!moved) return [];
-      var copy = row.slice();
-      for (i = 0; i < COLS; i++) {
-        var ni = (i + nn) % COLS;
-        row[ni] = copy[i];
-        if (copy[i]) moves.push({ cookie: copy[i], fr: r, fc: i, tr: r, tc: ni });
-      }
-    } else {
-      var col = [];
-      for (i = 0; i < ROWS; i++) col.push(this.board[i][c]);
-      var moved2 = false;
-      for (i = 0; i < ROWS; i++) if (col[i]) { moved2 = true; break; }
-      if (!moved2) return [];
-      var nn2 = (dir === 'D') ? 1 : ROWS - 1;
-      for (i = 0; i < ROWS; i++) {
-        var ni2 = (i + nn2) % ROWS;
-        this.board[ni2][c] = col[i];
-        if (col[i]) moves.push({ cookie: col[i], fr: i, fc: c, tr: ni2, tc: c });
+  // Bounding box of all cookies; null when empty.
+  CookieGame.prototype.bounds = function () {
+    var r0 = ROWS, r1 = -1, c0 = COLS, c1 = -1;
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        if (this.board[r][c]) {
+          if (r < r0) r0 = r;
+          if (r > r1) r1 = r;
+          if (c < c0) c0 = c;
+          if (c > c1) c1 = c;
+        }
       }
     }
-    this.lastEvent = { kind: 'rotate', moves: moves };
+    return r1 < 0 ? null : { r0: r0, r1: r1, c0: c0, c1: c1 };
+  };
+
+  // dir: row 'L'|'R', col 'U'|'D'. Wraps WITHIN the cookie region.
+  // Returns list of moves for animation.
+  CookieGame.prototype.rotate = function (r, c, dir) {
+    if (this.gameOver) return [];
+    var b = this.bounds();
+    if (!b) return [];
+    var moves = [], i;
+    if (dir === 'L' || dir === 'R') {
+      if (r < b.r0 || r > b.r1) return [];
+      var n = b.c1 - b.c0 + 1;
+      var has = false, row = [];
+      for (i = b.c0; i <= b.c1; i++) {
+        row.push(this.board[r][i]);
+        if (this.board[r][i]) has = true;
+      }
+      if (!has) return [];
+      for (i = 0; i < n; i++) {
+        var fc = b.c0 + i;
+        var tc = b.c0 + (dir === 'R' ? (i + 1) % n : (i - 1 + n) % n);
+        this.board[r][tc] = row[i];
+        if (row[i]) moves.push({ cookie: row[i], fr: r, fc: fc, tr: r, tc: tc });
+      }
+    } else {
+      if (c < b.c0 || c > b.c1) return [];
+      var m = b.r1 - b.r0 + 1;
+      var has2 = false, col = [];
+      for (i = b.r0; i <= b.r1; i++) {
+        col.push(this.board[i][c]);
+        if (this.board[i][c]) has2 = true;
+      }
+      if (!has2) return [];
+      for (i = 0; i < m; i++) {
+        var fr = b.r0 + i;
+        var tr = b.r0 + (dir === 'D' ? (i + 1) % m : (i - 1 + m) % m);
+        this.board[tr][c] = col[i];
+        if (col[i]) moves.push({ cookie: col[i], fr: fr, fc: c, tr: tr, tc: c });
+      }
+    }
+    this.lastEvent = { kind: 'rotate', moves: moves, bounds: { r0: b.r0, r1: b.r1, c0: b.c0, c1: b.c1 } };
     return moves;
   };
 
   // A line matches when it has >=2 cookies and all share one type
-  // (wild matches any; all-wild line also clears).
+  // (wild matches any; all-wild line also clears). Checked within region.
   CookieGame.prototype.findMatches = function () {
-    var lines = [], r, c, i;
+    var b = this.bounds();
+    if (!b) return [];
+    var lines = [], r, c, i, cells, t;
     function lineType(cells, board) {
       var base = -2, n = 0;
-      for (i = 0; i < cells.length; i++) {
-        var k = board[cells[i].r][cells[i].c];
+      for (var j = 0; j < cells.length; j++) {
+        var k = board[cells[j].r][cells[j].c];
         if (!k) continue;
         n++;
         if (!k.wild) {
@@ -134,17 +161,17 @@
       if (n < 2) return null;
       return base === -2 ? -1 : base; // -1 = all wild
     }
-    for (r = 0; r < ROWS; r++) {
-      var rcells = [];
-      for (c = 0; c < COLS; c++) rcells.push({ r: r, c: c });
-      var t = lineType(rcells, this.board);
-      if (t !== null) lines.push({ cells: rcells.filter(function (p) { return true; }), type: t, dir: 'row', idx: r });
+    for (r = b.r0; r <= b.r1; r++) {
+      cells = [];
+      for (c = b.c0; c <= b.c1; c++) cells.push({ r: r, c: c });
+      t = lineType(cells, this.board);
+      if (t !== null) lines.push({ cells: cells, type: t, dir: 'row', idx: r });
     }
-    for (c = 0; c < COLS; c++) {
-      var ccells = [];
-      for (r = 0; r < ROWS; r++) ccells.push({ r: r, c: c });
-      var t2 = lineType(ccells, this.board);
-      if (t2 !== null) lines.push({ cells: ccells, type: t2, dir: 'col', idx: c });
+    for (c = b.c0; c <= b.c1; c++) {
+      cells = [];
+      for (r = b.r0; r <= b.r1; r++) cells.push({ r: r, c: c });
+      t = lineType(cells, this.board);
+      if (t !== null) lines.push({ cells: cells, type: t, dir: 'col', idx: c });
     }
     return lines;
   };
@@ -193,7 +220,6 @@
   CookieGame.prototype.update = function (dt) {
     if (this.gameOver) return null;
     this.now += dt;
-    // combo decay (display only; combo resets on next clear outside window)
     this.invasionIn -= dt;
     if (this.invasionIn <= 0) {
       this.invasionIn = this.invasionInterval();
@@ -206,46 +232,61 @@
     return this.combo >= 2 && (this.now - this.lastClearAt) <= COMBO_WINDOW;
   };
 
+  // Grows the region by one line from the right or top. Game over when the
+  // region already touches the tray edge and cannot grow further.
   CookieGame.prototype.invade = function () {
-    var r, c, i;
-    if (this.count() >= COLS * ROWS) {
-      this.gameOver = true;
-      this.lastEvent = { kind: 'gameover', reason: 'full' };
-      return this.lastEvent;
+    var b = this.bounds(), r, c;
+    if (!b) {
+      // emptied board: seed a fresh 2x2 block, bottom-left
+      var n = this.typesForLevel(this.level), incoming = [];
+      var guard = 0;
+      do {
+        incoming = [];
+        for (r = ROWS - 2; r < ROWS; r++) {
+          for (c = 0; c < 2; c++) {
+            this.board[r][c] = null;
+          }
+        }
+        for (r = ROWS - 2; r < ROWS; r++) {
+          for (c = 0; c < 2; c++) {
+            var ks = this.makeCookie(n);
+            this.board[r][c] = ks;
+            incoming.push({ r: r, c: c, cookie: ks });
+          }
+        }
+        guard++;
+      } while (this.findMatches().length > 0 && guard < 20);
+      var ev0 = { kind: 'invade', side: 'seed', incoming: incoming, prevBounds: null };
+      this.lastEvent = ev0;
+      return ev0;
     }
     var side = this.rng() < 0.65 ? 'right' : 'top';
     var nTypes = this.typesForLevel(this.level);
     var incoming = [];
     if (side === 'right') {
-      for (r = 0; r < ROWS; r++) {
-        if (this.board[r][0]) { // pushed out of the field
-          this.gameOver = true;
-          this.lastEvent = { kind: 'gameover', reason: 'overflow', row: r };
-          return this.lastEvent;
-        }
+      if (b.c1 >= COLS - 1) {
+        this.gameOver = true;
+        this.lastEvent = { kind: 'gameover', reason: 'overflow' };
+        return this.lastEvent;
       }
-      for (r = 0; r < ROWS; r++) {
-        for (c = 0; c < COLS - 1; c++) this.board[r][c] = this.board[r][c + 1];
+      for (r = b.r0; r <= b.r1; r++) {
         var k = this.makeCookie(nTypes);
-        this.board[r][COLS - 1] = k;
-        incoming.push({ r: r, c: COLS - 1, cookie: k });
+        this.board[r][b.c1 + 1] = k;
+        incoming.push({ r: r, c: b.c1 + 1, cookie: k });
       }
     } else {
-      for (c = 0; c < COLS; c++) {
-        if (this.board[ROWS - 1][c]) {
-          this.gameOver = true;
-          this.lastEvent = { kind: 'gameover', reason: 'overflow', col: c };
-          return this.lastEvent;
-        }
+      if (b.r0 <= 0) {
+        this.gameOver = true;
+        this.lastEvent = { kind: 'gameover', reason: 'overflow' };
+        return this.lastEvent;
       }
-      for (c = 0; c < COLS; c++) {
-        for (r = ROWS - 1; r > 0; r--) this.board[r][c] = this.board[r - 1][c];
+      for (c = b.c0; c <= b.c1; c++) {
         var k2 = this.makeCookie(nTypes);
-        this.board[0][c] = k2;
-        incoming.push({ r: 0, c: c, cookie: k2 });
+        this.board[b.r0 - 1][c] = k2;
+        incoming.push({ r: b.r0 - 1, c: c, cookie: k2 });
       }
     }
-    var ev = { kind: 'invade', side: side, incoming: incoming };
+    var ev = { kind: 'invade', side: side, incoming: incoming, prevBounds: { r0: b.r0, r1: b.r1, c0: b.c0, c1: b.c1 } };
     this.lastEvent = ev;
     // invasions can complete lines -> bonus clear
     var clearEv = this.resolveMatches();
@@ -256,7 +297,7 @@
     return ev;
   };
 
-  // Danger 0..1 for HUD tension (how full the board is)
+  // Danger 0..1 for HUD tension (how full the tray is)
   CookieGame.prototype.danger = function () {
     return this.count() / (COLS * ROWS);
   };

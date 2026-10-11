@@ -9,7 +9,7 @@
 <title>COOKIE CRAZE · 曲奇狂潮 — CaLBoY COLOR</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="pix-on">
+<body class="dm-color">
 <div id="app">
 
   <!-- ======= TITLE ======= -->
@@ -23,26 +23,30 @@
     <div class="title-best"><span data-zh="最高分" data-en="BEST">最高分</span><b id="title-best">0</b></div>
     <button id="btn-start" class="big-btn" data-zh="开始游戏" data-en="START">开始游戏</button>
     <div class="title-row">
-      <button id="btn-pixel" class="chip-btn" aria-pressed="true"><span class="dot"></span><span data-zh="像素效果" data-en="PIXEL FX">像素效果</span></button>
-      <button id="btn-mute" class="chip-btn" aria-pressed="false"><span class="dot"></span><span data-zh="声音" data-en="SOUND">声音</span></button>
-      <button id="btn-immersive" class="chip-btn"><span data-zh="⛶ 沉浸模式" data-en="⛶ IMMERSIVE">⛶ 沉浸模式</span></button>
-    </div>
-    <div class="title-row">
       <button id="btn-help" class="chip-btn"><span data-zh="？ 玩法说明" data-en="? HOW TO PLAY">？ 玩法说明</span></button>
       <button id="btn-lang" class="chip-btn"><span>中文 / EN</span></button>
     </div>
-    <div class="version-tag">v1.0</div>
+    <div class="version-tag">v2.0</div>
   </section>
 
-  <!-- ======= GAME ======= -->
+  <!-- ======= GAME : CaLBoY calculator ======= -->
   <section id="screen-game" class="screen hidden">
-    <div id="stage"><canvas id="game-canvas"></canvas><div id="stage-scan" class="scanlines"></div></div>
-    <div id="controls">
-      <button id="btn-pause" class="ctl-btn" data-zh="暂停" data-en="II">暂停</button>
-      <button id="btn-mute2" class="ctl-btn"><span data-zh="声音" data-en="SOUND">声音</span><span class="st" id="mute-st"></span></button>
-      <button id="btn-pixel2" class="ctl-btn"><span data-zh="像素" data-en="PIXEL">像素</span><span class="st" id="pixel-st"></span></button>
-      <button id="btn-immersive2" class="ctl-btn" data-zh="⛶ 沉浸" data-en="⛶ FULL">⛶ 沉浸</button>
-      <button id="btn-help2" class="ctl-btn">？</button>
+    <div class="calc">
+      <div class="calc-brand"><span class="calboy">CaLBoY</span> <span class="color-word">COLOR</span></div>
+      <div class="lcd-bezel">
+        <div class="lcd">
+          <canvas id="game-canvas"></canvas>
+          <div class="scanlines"></div>
+        </div>
+      </div>
+      <div class="keys">
+        <button id="key-mode" class="key"><b data-zh="模式" data-en="MODE">模式</b><span id="mode-name">彩色</span></button>
+        <button id="key-mute" class="key"><b data-zh="声音" data-en="SOUND">声音</b><span id="mute-name" data-zh="开" data-en="ON">开</span></button>
+        <button id="key-pause" class="key"><b data-zh="暂停" data-en="PAUSE">暂停</b><span>II</span></button>
+        <button id="key-help" class="key"><b data-zh="帮助" data-en="HELP">帮助</b><span>？</span></button>
+        <button id="key-lang" class="key"><b data-zh="语言" data-en="LANG">语言</b><span>中/EN</span></button>
+        <button id="key-full" class="key accent"><b data-zh="全屏" data-en="FULL">全屏</b><span>⛶</span></button>
+      </div>
     </div>
     <div id="hint-bar" class="hidden" data-zh="👆 滑动一行/一列来转动 · 点击格子可定位" data-en="👆 Swipe a row/column to rotate · Tap to select">👆 滑动一行/一列来转动 · 点击格子可定位</div>
   </section>
@@ -77,49 +81,29 @@
       <h2 data-zh="玩法说明" data-en="HOW TO PLAY">玩法说明</h2>
       <ol class="help-list">
         <li data-zh="👆 在棋盘上横向/竖向滑动，转动整行或整列（循环移动）。" data-en="👆 Swipe horizontally/vertically to rotate a whole row or column (wraps around).">👆 在棋盘上横向/竖向滑动，转动整行或整列（循环移动）。</li>
+        <li data-zh="📦 转动只影响曲奇所在的矩形区域——区域会随着曲奇涌入不断长大。" data-en="📦 Rotation only affects the cookie region — it grows as cookies invade.">📦 转动只影响曲奇所在的矩形区域——区域会随着曲奇涌入不断长大。</li>
         <li data-zh="🍪 一行或一列里出现 2 块以上同种曲奇，就会被吃掉！" data-en="🍪 2+ cookies of the same kind in one row/column get eaten!">🍪 一行或一列里出现 2 块以上同种曲奇，就会被吃掉！</li>
         <li data-zh="🌈 彩虹曲奇是万能牌，可代替任何口味。" data-en="🌈 Rainbow cookie is wild — matches any flavor.">🌈 彩虹曲奇是万能牌，可代替任何口味。</li>
-        <li data-zh="⏳ 曲奇会不断从右侧和顶部涌入，别让棋盘溢出！" data-en="⏳ Cookies keep invading from the right and top — don't let the board overflow!">⏳ 曲奇会不断从右侧和顶部涌入，别让棋盘溢出！</li>
+        <li data-zh="⏳ 曲奇会不断从右侧和顶部涌入，区域顶到边框就结束了！" data-en="⏳ Cookies keep invading from the right and top — game over when the region hits the tray edge!">⏳ 曲奇会不断从右侧和顶部涌入，区域顶到边框就结束了！</li>
         <li data-zh="🔥 短时间内连续消除可叠连击倍率；消除越多，等级越高、速度越快。" data-en="🔥 Chain clears quickly for combo multipliers; higher level = faster invasions.">🔥 短时间内连续消除可叠连击倍率；消除越多，等级越高、速度越快。</li>
-        <li data-zh="⌨️ 键盘：方向键转动光标所在行/列，WASD 移动光标；真机上用十字键转动，点屏幕移动光标。" data-en="⌨️ Keys: arrows rotate the line at the cursor, WASD moves it; on the handheld use the D-pad, tap screen to move cursor.">⌨️ 键盘：方向键转动光标所在行/列，WASD 移动光标；真机上用十字键转动，点屏幕移动光标。</li>
+        <li data-zh="🖥️ 模式键切换显示：彩色 / 像素 / 液晶（黑白）。⌨️ 方向键转动，WASD 移动光标。" data-en="🖥️ MODE key: COLOR / PIXEL / LCD (mono). ⌨️ Arrows rotate, WASD moves cursor.">🖥️ 模式键切换显示：彩色 / 像素 / 液晶（黑白）。⌨️ 方向键转动，WASD 移动光标。</li>
       </ol>
       <button id="btn-help-close" class="big-btn" data-zh="开始！" data-en="GOT IT!">开始！</button>
     </div>
   </div>
 
-  <!-- ======= IMMERSIVE CaLBoY COLOR ======= -->
+  <!-- ======= IMMERSIVE : big black screen ======= -->
   <div id="immersive" class="hidden">
-    <div class="gbc">
-      <div class="gbc-led"><i></i><span>POWER</span></div>
-      <div class="gbc-screen-bezel">
-        <div class="gbc-screen-top"><span data-zh="彩色液晶屏" data-en="COLOR LCD">彩色液晶屏</span></div>
-        <div class="gbc-screen"><div id="device-screen"></div><div class="scanlines"></div><div class="screen-glare"></div></div>
+    <div class="big-bezel">
+      <div class="big-led"><i></i></div>
+      <div class="big-screen">
+        <div id="big-holder"></div>
+        <div class="scanlines"></div>
       </div>
-      <div class="gbc-logo"><span class="calboy">CaLBoY</span><span class="color-word">COLOR</span></div>
-      <div class="gbc-controls">
-        <div class="dpad">
-          <button class="dp up" data-dir="U" aria-label="up"></button>
-          <button class="dp left" data-dir="L" aria-label="left"></button>
-          <button class="dp right" data-dir="R" aria-label="right"></button>
-          <button class="dp down" data-dir="D" aria-label="down"></button>
-          <div class="dp-center"></div>
-        </div>
-        <div class="abtns">
-          <button class="abtn" id="dev-b"><span>B</span></button>
-          <button class="abtn" id="dev-a"><span>A</span></button>
-        </div>
-      </div>
-      <div class="gbc-sys">
-        <button class="sysbtn" id="dev-select"><span data-zh="选择" data-en="SELECT">选择</span></button>
-        <button class="sysbtn" id="dev-start"><span data-zh="开始" data-en="START">开始</span></button>
-      </div>
-      <div class="gbc-exit"><button id="btn-exit-immersive" data-zh="✕ 退出沉浸模式" data-en="✕ EXIT IMMERSIVE">✕ 退出沉浸模式</button></div>
-      <div class="speaker"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="big-etch"><span class="calboy">CaLBoY</span> <span class="color-word">COLOR</span></div>
     </div>
+    <button id="immersive-exit" aria-label="exit">✕</button>
   </div>
-
-  <!-- ======= BOOT ======= -->
-  <div id="boot" class="hidden"><div class="boot-logo">CaLBoY</div></div>
 
 </div>
 <script src="js/game.js"></script>

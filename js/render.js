@@ -18,15 +18,15 @@
     this.shake = 0;
     this.sel = { r: 4, c: 1 };
     this.time = 0;
+    this.panel = null;  // eased region rect in cell coords {x0,y0,x1,y1}
     this.setPixelFx(true);
   }
 
   Renderer.prototype.setPixelFx = function (on) {
     this.pixelOn = on;
-    var dpr = (!on && window.devicePixelRatio) ? Math.min(window.devicePixelRatio, 2) : 1;
-    var sx = on ? 0.5 : dpr, sy = on ? 0.5 : dpr;
-    this.canvas.width = Math.round(W * sx);
-    this.canvas.height = Math.round(H * sy);
+    var s = on ? 0.5 : 2; // pixel mode: chunky; else crisp 2x
+    this.canvas.width = Math.round(W * s);
+    this.canvas.height = Math.round(H * s);
     this.scaleX = this.canvas.width / W;
     this.scaleY = this.canvas.height / H;
     this.ctx.imageSmoothingEnabled = !on;
@@ -37,16 +37,16 @@
   };
 
   // --- event hooks from main ---
-  Renderer.prototype.onRotate = function (moves, dir) {
+  Renderer.prototype.onRotate = function (ev, dir) {
+    var b = ev.bounds, moves = ev.moves;
     for (var i = 0; i < moves.length; i++) {
       var m = moves[i], id = m.cookie.id;
-      var v = this.vis[id] || { x: m.fc, y: m.fr };
-      // wrap-around: start just off the edge so it slides in
+      // wrap-around: start just off the region edge so it slides in
       var sx = m.fc, sy = m.fr;
-      if (dir === 'R' && m.fc === COLS - 1 && m.tc === 0) sx = COLS;
-      if (dir === 'L' && m.fc === 0 && m.tc === COLS - 1) sx = -1;
-      if (dir === 'D' && m.fr === ROWS - 1 && m.tr === 0) sy = ROWS;
-      if (dir === 'U' && m.fr === 0 && m.tr === ROWS - 1) sy = -1;
+      if (dir === 'R' && m.fc === b.c1 && m.tc === b.c0) sx = b.c1 + 1;
+      if (dir === 'L' && m.fc === b.c0 && m.tc === b.c1) sx = b.c0 - 1;
+      if (dir === 'D' && m.fr === b.r1 && m.tr === b.r0) sy = b.r1 + 1;
+      if (dir === 'U' && m.fr === b.r0 && m.tr === b.r1) sy = b.r0 - 1;
       this.vis[id] = { x: sx, y: sy };
     }
   };
@@ -74,9 +74,13 @@
   };
 
   Renderer.prototype.onInvade = function (ev) {
-    var self = this;
+    var self = this, pb = ev.prevBounds;
     ev.incoming.forEach(function (p) {
-      self.vis[p.cookie.id] = ev.side === 'right' ? { x: COLS, y: p.r } : { x: p.c, y: -1 };
+      var v;
+      if (ev.side === 'right') v = { x: pb.c1 + 2, y: p.r };
+      else if (ev.side === 'top') v = { x: p.c, y: pb.r0 - 2 };
+      else v = { x: p.c, y: p.r + 1.5 }; // seed: rise from below
+      self.vis[p.cookie.id] = v;
     });
     this.shake = Math.max(this.shake, 2.5);
   };
@@ -144,18 +148,33 @@
   }
 
   Renderer.prototype.drawBoard = function (g, game, dt) {
-    var bx = BOARD_X - 4, by = BOARD_Y - 4, bw = COLS * CELL + 8, bh = ROWS * CELL + 8;
+    var b = game.bounds();
+    // ease the panel toward the live region (the "bin" visibly grows)
+    if (!this.panel) {
+      this.panel = b ? { x0: b.c0, y0: b.r0, x1: b.c1 + 1, y1: b.r1 + 1 }
+                     : { x0: 2.5, y0: 2.5, x1: 3.5, y1: 3.5 };
+    }
+    if (b) {
+      var k = Math.min(1, dt * 7), p = this.panel;
+      p.x0 += (b.c0 - p.x0) * k; p.y0 += (b.r0 - p.y0) * k;
+      p.x1 += (b.c1 + 1 - p.x1) * k; p.y1 += (b.r1 + 1 - p.y1) * k;
+    }
+    var p = this.panel;
+    var bx = BOARD_X + p.x0 * CELL, by = BOARD_Y + p.y0 * CELL;
+    var bw = (p.x1 - p.x0) * CELL, bh = (p.y1 - p.y0) * CELL;
     // panel
     var gr = g.createLinearGradient(0, by, 0, by + bh);
     gr.addColorStop(0, '#3a2a1d');
     gr.addColorStop(1, '#2c2015');
     g.fillStyle = gr;
-    rr(g, bx, by, bw, bh, 10); g.fill();
-    // slots
+    rr(g, bx - 4, by - 4, bw + 8, bh + 8, 10); g.fill();
+    // slots (only the live cells)
     g.fillStyle = 'rgba(0,0,0,0.22)';
-    for (var r = 0; r < ROWS; r++) {
-      for (var c = 0; c < COLS; c++) {
-        rr(g, bx + 4 + c * CELL + 3, by + 4 + r * CELL + 3, CELL - 6, CELL - 6, 7);
+    var c0 = Math.max(0, Math.floor(p.x0)), c1 = Math.min(COLS - 1, Math.ceil(p.x1) - 1);
+    var r0 = Math.max(0, Math.floor(p.y0)), r1 = Math.min(ROWS - 1, Math.ceil(p.y1) - 1);
+    for (var r = r0; r <= r1; r++) {
+      for (var c = c0; c <= c1; c++) {
+        rr(g, BOARD_X + c * CELL + 3, BOARD_Y + r * CELL + 3, CELL - 6, CELL - 6, 7);
         g.fill();
       }
     }
@@ -164,17 +183,17 @@
       var pulse = 0.55 + 0.35 * Math.sin(this.time * 6);
       g.strokeStyle = 'rgba(255,217,59,' + pulse.toFixed(2) + ')';
       g.lineWidth = 2.5;
-      rr(g, bx + 4 + this.sel.c * CELL + 1.5, by + 4 + this.sel.r * CELL + 1.5, CELL - 3, CELL - 3, 8);
+      rr(g, BOARD_X + this.sel.c * CELL + 1.5, BOARD_Y + this.sel.r * CELL + 1.5, CELL - 3, CELL - 3, 8);
       g.stroke();
     }
-    // danger glow
+    // danger glow around the region
     var d = game.danger();
     if (d > 0.55) {
       var warn = game.invasionIn < 1.3 ? (0.5 + 0.5 * Math.sin(this.time * 12)) : 0;
       var a = Math.min(0.75, (d - 0.55) * 1.6 + warn * 0.4);
       g.strokeStyle = 'rgba(255,70,60,' + a.toFixed(2) + ')';
       g.lineWidth = 3;
-      rr(g, bx + 1, by + 1, bw - 2, bh - 2, 10); g.stroke();
+      rr(g, bx - 4, by - 4, bw + 8, bh + 8, 10); g.stroke();
     }
   };
 
@@ -342,9 +361,11 @@
   };
 
   Renderer.prototype.drawWarning = function (g, game) {
-    if (game.gameOver || game.invasionIn > 1.3 || game.danger() < 0.5) return;
+    if (game.gameOver || game.invasionIn > 1.3 || game.danger() < 0.5 || !this.panel) return;
+    var p = this.panel;
+    var cx = BOARD_X + (p.x0 + p.x1) / 2 * CELL, cy = BOARD_Y + (p.y0 + p.y1) / 2 * CELL;
     var a = 0.10 + 0.08 * Math.sin(this.time * 12);
-    var gr = g.createRadialGradient(W / 2, HUD_H + 120, 60, W / 2, HUD_H + 120, 190);
+    var gr = g.createRadialGradient(cx, cy, 40, cx, cy, 170);
     gr.addColorStop(0, 'rgba(255,60,40,0)');
     gr.addColorStop(1, 'rgba(255,60,40,' + a.toFixed(3) + ')');
     g.fillStyle = gr;

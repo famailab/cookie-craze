@@ -63,7 +63,10 @@ const sandbox = {
     getElementById: (id) => el(id),
     body: null, // set below
     querySelectorAll: (sel) => sel === '.dp' ? [] : [],
-    querySelector: () => null,
+    querySelector: (sel) => {
+      if (sel === '.lcd' || sel === '.scanlines') { const e = makeEl('q'); e._q = sel; return e; }
+      return null;
+    },
     createElement: (tag) => { const e = makeEl('dyn'); if (tag === 'canvas') e.getContext = () => ctxStub; return e; },
     addEventListener(t, fn) { (listeners[t] = listeners[t] || []).push(fn); },
     documentElement: { requestFullscreen: () => Promise.resolve(), lang: '' },
@@ -118,15 +121,15 @@ el('btn-resume').click(); frames(30, 16);
 console.log('pause/resume OK');
 
 // toggles
-el('btn-pixel2').click();
-el('btn-mute2').click();
-el('btn-lang').click();
-el('btn-lang').click();
+el('key-mode').click();
+el('key-mute').click();
+el('key-lang').click();
+el('key-lang').click();
 frames(30, 16);
 console.log('toggles OK');
 
 // help open/close
-el('btn-help2').click(); frames(10, 16);
+el('key-help').click(); frames(10, 16);
 el('btn-help-close').click(); frames(10, 16);
 console.log('help OK');
 
@@ -139,9 +142,9 @@ el('btn-again').click(); frames(60, 16);
 console.log('play-again OK');
 
 // immersive enter/exit
-el('btn-immersive2').click(); frames(80, 16);
+el('key-full').click(); frames(80, 16);
 console.log('immersive entered, hidden =', els['immersive'].classList.contains('hidden'));
-el('btn-exit-immersive').click(); frames(30, 16);
+el('immersive-exit').click(); frames(30, 16);
 console.log('immersive exited OK');
 
 console.log('\nSMOKE TEST PASSED');
